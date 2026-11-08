@@ -1,0 +1,8 @@
+#!/bin/sh
+# Pre-commit secret scan: blocks the commit if any staged change looks like a
+# real credential. Applies to every developer via:
+#
+#        git config core.hooksPath githooks   (run once after clone)
+#
+# See .gitleaks.toml for the scoped allowlist of fabricated test fixtures.
+gitleaks git --pre-commit --staged --redact --exit-code 1

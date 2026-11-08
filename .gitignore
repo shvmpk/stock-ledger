@@ -1,0 +1,80 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### macOS ###
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+### Secrets & Local Environment Overrides ###
+# Never commit real credentials, API keys, or local secrets
+*.env
+.env
+.env.local
+.env.*.local
+application-local.yaml
+application-local.properties
+application-secrets.yaml
+
+### Frontend — Root-level safety net ###
+# The frontend/.gitignore covers these locally; root rules add a second line of defence
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+frontend/*.local
+
+### Docker Local Overrides ###
+# docker-compose.override.yml is used for local developer customisations (ports, volumes)
+docker-compose.override.yml
+
+### JVM / Java ###
+*.class
+hs_err_pid*.log
+
+### Logs ###
+*.log
+logs/
+
+### Docs kept local (not published) ###
+docs/ROADMAP.md
+
+### Documentation site tooling ###
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/

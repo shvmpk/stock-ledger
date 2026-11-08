@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: stockledger-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: stockledger
+      POSTGRES_USER: stockledger
+      POSTGRES_PASSWORD: stockledger_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - stockledger_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stockledger -d stockledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stockledger-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/stockledger
+      SPRING_DATASOURCE_USERNAME: stockledger
+      SPRING_DATASOURCE_PASSWORD: stockledger_secret
+      SPRING_PROFILES_ACTIVE: dev
+      # Required for backend startup; set this in the shell before running Compose.
+      PLATFORM_CREDENTIALS_KEY: "${PLATFORM_CREDENTIALS_KEY:-}"
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["full"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: stockledger-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    depends_on:
+      - backend
+
+volumes:
+  stockledger_pgdata:
+    driver: local

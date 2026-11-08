@@ -1,0 +1,26 @@
+import type { MovementFilters } from '../api/types';
+
+export const queryKeys = {
+  me: ['me'] as const,
+  products: ['products'] as const,
+  retiredProducts: ['products', 'retired'] as const,
+  product: (id: string) => ['product', id] as const,
+  reorder: ['reorder'] as const,
+  reorderDetail: (variantId: string) => ['reorder', 'detail', variantId] as const,
+  reorderSettings: ['reorderSettings'] as const,
+  stockCounts: (filters: Record<string, unknown> = {}) => ['stockCounts', filters] as const,
+  stockCount: (id: string) => ['stockCount', id] as const,
+  stockExplanation: (variantId: string) => ['stockExplanation', variantId] as const,
+  movements: (filters: MovementFilters) => ['movements', filters] as const,
+  orders: (filters: Record<string, unknown>) => ['orders', filters] as const,
+  order: (id: string) => ['order', id] as const,
+  orderReturns: (id: string) => ['orderReturns', id] as const,
+  orderSummary: ['orderSummary'] as const,
+  shippingRates: ['shippingRates'] as const,
+  shippingSummary: (month?: string) => ['shippingSummary', month ?? 'all'] as const,
+  platforms: ['platforms'] as const,
+  platformCatalog: ['platformCatalog'] as const,
+  platformEvents: (connectionId: string) => ['platformEvents', connectionId] as const,
+  users: ['users'] as const,
+  authEvents: (filters: Record<string, unknown> = {}) => ['authEvents', filters] as const,
+};

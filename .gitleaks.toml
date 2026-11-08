@@ -1,0 +1,85 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# Every default detection rule stays enabled (useDefault = true). The only
+# exceptions below are the known, deliberate, FABRICATED test fixtures used by
+# the high-fidelity test data mandate in AGENTS.md. They look like real
+# Shopify/WooCommerce/Stripe credentials so the platform adapters can be tested
+# accurately, but they are randomly generated test strings that were never and
+# will never be issued by a real provider.
+#
+# Notes
+# - The project-root `.env` (platform credentials key) is deliberately NOT
+#   allowlisted: it is gitignored, and any attempt to `git add -f .env` must
+#   trip the pre-commit hook.
+# - Allowlists are scoped to exact file paths, so a genuine secret pasted
+#   anywhere else (including other test files) is still caught.
+
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Backend test fixtures (JUnit / Spring Boot tests)
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Fabricated platform credentials and fake webhook/tokens in backend test fixtures"
+
+paths = [
+  # Fake Shopify-type AES test keys, base64-encoded, used to exercise the
+  # credentials cipher and codec without holding a real partner key.
+  '''src/test/resources/application-test\.yaml$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/security/PlatformCredentialCipherTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/security/PlatformCredentialPropertiesTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/PlatformCredentialsCodecTest\.java$''',
+
+  # Fabricated Shopify access tokens (shpat_) and signing secrets used to
+  # verify webhook HMAC handling and platform sync flows.
+  '''src/test/java/com/shvmpk/stock_ledger/integration/service/PlatformConnectionServiceIntegrationTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/integration/web/PlatformConnectionControllerTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/user/AuthEventRecorderTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/PlatformEndpointValidatorTest\.java$''',
+
+  # Fabricated WooCommerce consumer keys and outbound HTTP test fixtures.
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/WooCommerceOrderAdapterTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/outbound/HardenedOutboundClientTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/outbound/OutboundAddressPolicyTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/unit/platform/outbound/ValidatingDnsResolverTest\.java$''',
+
+  # Connection history / testcontainer migration checks that embed sample
+  # credential strings only as database row content.
+  '''src/test/java/com/shvmpk/stock_ledger/concurrency/PlatformConnectionConcurrencyTest\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/integration/repository/FlywayMigrationV11Test\.java$''',
+  '''src/test/java/com/shvmpk/stock_ledger/integration/seed/DevDataSeederRunnerTest\.java$''',
+]
+
+# ---------------------------------------------------------------------------
+# Frontend test fixtures (Vitest)
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Common-password blocklist and fabricated platform keys in frontend tests"
+
+paths = [
+  # `qwerty123456` and friends are entries in the weak-password blocklist that
+  # the change-password form validates against.
+  '''frontend/src/features/auth/ChangePasswordPage\.tsx$''',
+
+  # Fabricated WooCommerce consumer keys and UUID connection ids for API tests.
+  '''frontend/src/features/settings/platformSetup\.test\.ts$''',
+  '''frontend/src/lib/api/endpoints/platforms\.test\.ts$''',
+]
+
+# ---------------------------------------------------------------------------
+# Gitignored build artifacts — copies of tracked test data in derived outputs
+# (Gradle reports/XML, VitePress dist, dependency caches). They can never be
+# staged or pushed, so they are allowlisted purely to denoise `gitleaks dir`
+# scans of the working tree.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Gitignored build outputs and dependency caches (never committed)"
+
+paths = [
+  '''^build/''',
+  '''^frontend/node_modules/''',
+  '''^docs/node_modules/''',
+  '''^docs/\.vitepress/dist/''',
+  '''\.DS_Store$''',
+]

@@ -1,0 +1,16 @@
+spring:
+  config:
+    # Local development only: load the gitignored project-root .env file.
+    import: optional:file:./.env[.properties]
+
+app:
+  platform:
+    # Create the local key file once with:
+    #   [ -f .env ] || printf 'PLATFORM_CREDENTIALS_KEY=%s\n' "$(openssl rand -base64 32)" > .env
+    #   chmod 600 .env
+    # Spring Boot imports .env above; Docker Compose also reads it automatically.
+    # Never commit .env or hardcode a real key here.
+    credentials-key: ${PLATFORM_CREDENTIALS_KEY:}
+    allow-insecure-endpoints: true
+    sync:
+      scheduled-enabled: false

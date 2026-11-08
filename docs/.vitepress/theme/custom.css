@@ -1,0 +1,24 @@
+/* MathJax rendering polish — ARCHITECTURE.md renders the ledger equation with it. */
+.mjx-chtml {
+  display: inline-block;
+  line-height: 1.21;
+  vertical-align: middle;
+}
+
+/* Display equations should not stretch the page on mobile. */
+mjx-container[jax='CHTML'][display='true'] {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+/* "On this page" outline: VitePress truncates long titles with an ellipsis
+   ("Authentication error cod...."). Let them wrap instead. Line-height and
+   padding keep single-line items the same 32px height as the default. */
+.VPDocAsideOutline .outline-link {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 22px;
+  padding: 5px 0;
+}
