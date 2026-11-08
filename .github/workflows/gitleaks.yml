@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history, so leaked but later-removed commits are still scanned
 
@@ -25,3 +25,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The action defaults to a hard-coded gitleaks release that predates
+          # `[[allowlists]]` support (added in 8.24) and would silently ignore
+          # .gitleaks.toml. Pin the locally proven version instead.
+          GITLEAKS_VERSION: '8.30.1'
