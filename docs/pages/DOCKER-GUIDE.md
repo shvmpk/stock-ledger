@@ -146,10 +146,12 @@ flowchart LR
     A --> C["Frontend Lint, Typecheck & Tests"]
     B --> D["Docker Buildx with GHA Cache (type=gha)"]
     C --> D
+    D --> E["Trivy CVE Scan (HIGH/CRITICAL)"]
 ```
 
 - **Buildx Layer Caching (`type=gha`)**: Docker Buildx uses GitHub Actions' cache backend. Gradle dependencies and OS layers are cached across CI runs.
 - **Subsequent image builds finish in under 90 seconds**.
+- **Container vulnerability scanning**: the packaged backend and frontend images are scanned with [Trivy](https://trivy.dev/), reporting `HIGH`/`CRITICAL` CVEs with unfixed vulnerabilities ignored. The scan is report-only for now (`exit-code: 0`) — switch it to `exit-code: 1` to make it a hard quality gate.
 
 ---
 

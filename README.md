@@ -132,4 +132,6 @@ Screen-by-screen detail lives in [GUIDE.md](docs/pages/GUIDE.md); password and a
 - **Backend Container**: Multi-stage build pairing a stripped **`jlink` custom JRE (~45MB)** with Spring Boot **`layertools`** on **Google Distroless Debian 12 (glibc, non-root)**. Image size: **~165MB** with **0 OS CVEs**.
 - **Frontend Container**: Multi-stage Bun build served by **`nginxinc/nginx-unprivileged:alpine-slim`** with SPA pushState routing and pre-compressed Gzip. Image size: **~20MB**.
 
+Both packaged images are vulnerability-scanned in CI: the packaging job runs [Trivy](https://trivy.dev/) against the backend and frontend images on every push/PR, reporting `HIGH`/`CRITICAL` CVEs (unfixed vulnerabilities ignored). The scan currently runs in report mode — flip `exit-code` from `'0'` to `'1'` in [ci.yml](.github/workflows/ci.yml) to promote it to a hard build gate once the first findings are triaged.
+
 For deep-dive mechanics and GitHub Actions CI cache setup, refer to **[DOCKER-GUIDE.md](DOCKER-GUIDE.md)**.
