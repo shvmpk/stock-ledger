@@ -112,6 +112,43 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Fail fast if buildx silently skipped the docker export (see
+      # docker/build-push-action#321) instead of leaving Trivy to report a
+      # cryptic "No such image" error.
+      - name: Verify Backend Image Exists
+        run: docker image inspect stockledger-backend:ci
+
+      - name: Verify Frontend Image Exists
+        run: docker image inspect stockledger-frontend:ci
+
+      # Trivy scans both packaged images for HIGH/CRITICAL CVEs. This is
+      # currently report-only (`exit-code: '0'`): pre-existing findings are
+      # visible in the logs without failing the build. Once the first runs
+      # are reviewed, flip `exit-code` to '1' to promote it to a hard gate.
+      - name: Scan Backend Image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: stockledger-backend:ci
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: true
+          exit-code: '0'
+          hide-progress: true
+
+      - name: Scan Frontend Image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: stockledger-frontend:ci
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: true
+          exit-code: '0'
+          hide-progress: true
+
   e2e:
     name: Playwright End-to-End (Full Stack)
     runs-on: ubuntu-latest
@@ -150,31 +187,3 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
-
-      # Trivy scans both packaged images for HIGH/CRITICAL CVEs. This is
-      # currently report-only (`exit-code: '0'`): pre-existing findings are
-      # visible in the logs without failing the build. Once the first runs
-      # are reviewed, flip `exit-code` to '1' to promote it to a hard gate.
-      - name: Scan Backend Image (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: stockledger-backend:ci
-          format: table
-          severity: HIGH,CRITICAL
-          vuln-type: os,library
-          ignore-unfixed: true
-          exit-code: '0'
-          hide-progress: true
-
-      - name: Scan Frontend Image (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: stockledger-frontend:ci
-          format: table
-          severity: HIGH,CRITICAL
-          vuln-type: os,library
-          ignore-unfixed: true
-          exit-code: '0'
-          hide-progress: true
