@@ -30,6 +30,7 @@ export default withMermaid(
         { text: 'Architecture', link: '/ARCHITECTURE' },
         { text: 'API reference', link: '/API' },
         { text: 'Operations guide', link: '/DOCKER-GUIDE' },
+        { text: 'Load testing', link: '/LOAD-TESTING' },
         { text: 'User guide', link: '/GUIDE' },
       ],
       socialLinks: [{ icon: 'github', link: 'https://github.com/shvmpk/stock-ledger' }],

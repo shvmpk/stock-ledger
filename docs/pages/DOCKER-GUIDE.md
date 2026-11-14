@@ -155,6 +155,7 @@ flowchart LR
 - **Subsequent image builds finish in under 90 seconds**.
 - **Container vulnerability scanning**: the packaged backend and frontend images are scanned with [Trivy](https://trivy.dev/), reporting `HIGH`/`CRITICAL` CVEs with unfixed vulnerabilities ignored. The scan is report-only for now (`exit-code: 0`) — switch it to `exit-code: 1` to make it a hard quality gate.
 - **End-to-end (Playwright, Full Stack)**: a dedicated job boots the full containerized stack and runs one browser journey — owner login → seeded catalog — against the real backend and database.
+- **Load testing (k6, local only)**: a two-mode k6 suite drives the same stack through the nginx edge — a sustained steady profile and a 50-way oversell race proving the ledger invariant over HTTP. Deliberately *not* in CI (shared-runner numbers are noise); see **[LOAD-TESTING.md](./LOAD-TESTING.md)** for the runbook and recorded numbers.
 
 ---
 

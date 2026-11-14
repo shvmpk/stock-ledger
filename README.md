@@ -150,3 +150,16 @@ bun run e2e:down                # stop the stack afterwards
 - Playwright's webServer boots `docker compose --profile full`, waits for the backend to finish seeding (by polling a real login), then runs `frontend/e2e/`.
 - CI runs the same suite in a dedicated **Playwright End-to-End (Full Stack)** job; failures upload the Playwright HTML report as an artifact.
 - First run pays a one-time Chromium download and image build; subsequent runs take about two minutes.
+
+---
+
+## 📊 Load Testing (k6)
+
+A two-mode k6 suite drives the real full stack through the nginx edge: **steady** (10 VUs browse + place orders, ~100 s latency/throughput profile) and **race** (50 simultaneous checkouts against a variant holding one unit — the zero-oversell invariant proven over the wire: exactly 1× `201`, 49× `409`, 0× `5xx`).
+
+```bash
+k6 run k6/load-test.js                      # steady mode
+k6 run -e MODE=race k6/load-test.js         # oversell race
+```
+
+Both modes run against an isolated throwaway Compose stack (fresh DB volume, wiped after) so dev data is untouched — boot/teardown commands, recorded numbers, and a documented pre-existing finding are in **[LOAD-TESTING.md](docs/pages/LOAD-TESTING.md)**. Steady profile through the full stack: order placement **p95 ≈ 22 ms**, catalog browse **p95 ≈ 31 ms**, zero errors at ~7.6 orders/s.
