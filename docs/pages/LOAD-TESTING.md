@@ -96,10 +96,11 @@ Shared-runner CI numbers would be noise (different CPU each run), so there is
 | Server errors / unexpected statuses | **0** | must be 0 ✓ |
 | Checks | 53/53 (100%) | rate == 1 ✓ |
 | All 50 orders completed | ~0.4 s wall (~116 orders/s) | — |
-| `race_order_ms` | avg 107 · p50 110 · p90 143 · p95 146 · max 148 | — |
+| `race_order_ms` | avg 105 · p50 109 · p90 152 · p95 154 · max 158 | — |
 
 Latencies include JIT cold-start (the race fires within seconds of backend
 boot); a warm backend places the same orders in ~5–15 ms each (see steady).
+These numbers are from the post-fix verification run (finding 1 below).
 
 **What this proves:** every one of the 50 concurrent checkouts went through
 nginx → Spring Security → the atomic SQL reservation predicate
@@ -112,9 +113,9 @@ oversell, at the outermost boundary of the system.
 
 | Metric | Result | Threshold |
 | :--- | :--- | :--- |
-| Orders created | **768** (~7.64 orders/s) | — |
-| `create_order_ms` | avg 14.3 · p50 14.1 · p90 19.8 · **p95 22.0** · max 32.2 | p95 < 500 ✓ |
-| `list_products_ms` | avg 17.5 · p50 16.5 · p90 26.1 · **p95 31.3** · max 76.6 | p95 < 800 ✓ |
+| Orders created | **768** (~7.63 orders/s) | — |
+| `create_order_ms` | avg 14.9 · p50 14.8 · p90 20.7 · **p95 22.5** · max 29.3 | p95 < 500 ✓ |
+| `list_products_ms` | avg 18.3 · p50 16.7 · p90 27.5 · **p95 33.8** · max 73.0 | p95 < 800 ✓ |
 | `http_req_failed` | **0.00%** (0 / 1,541 requests) | < 1% ✓ |
 | Checks | 100% | rate == 1 ✓ |
 | Iteration duration | p95 1.04 s (≈ 1 s think time + requests) | — |
@@ -122,8 +123,10 @@ oversell, at the outermost boundary of the system.
 Order placement — which atomically reserves stock, appends an immutable
 `stock_movements` row, and inserts the order and its items in one transaction —
 runs at **p95 22 ms** through the full stack, with the catalog browse at
-**p95 31 ms**. Both have enormous headroom against their thresholds at this
-load; the 10-VU profile comfortably sustains ~15 requests/s.
+**p95 34 ms**. Both have enormous headroom against their thresholds at this
+load; the 10-VU profile comfortably sustains ~15 requests/s. These numbers are
+from the post-fix verification run (finding 1 below): 768 orders, zero
+collisions, and the sequence adds no measurable latency (pre-fix p95 22 ms).
 
 ### 4.3 JVM-level zero-oversell (Testcontainers)
 
@@ -138,31 +141,42 @@ date above: passing (test method ~0.6 s, plus Testcontainers startup).
 
 ## 5. Findings from the first runs
 
-### 5.1 Order-number collisions under load (pre-existing app bug — open)
+### 5.1 Order-number collisions under load (found by this suite — **fixed**)
 
-`OrderService.generateOrderNumber()` draws a **random** 5-digit suffix
-(`ORD-2026-NNNNN`, ~90,000 values), and `orders.order_number` is unique across
-**all history**. Each new order therefore collides with probability ≈
-*(orders already stored) / 90,000* — the failure rate **grows linearly with the
+`OrderService.generateOrderNumber()` originally drew a **random** 5-digit
+suffix (`ORD-2026-NNNNN`, ~90,000 values), and `orders.order_number` is unique
+across **all history**. Each new order therefore collided with probability ≈
+*(orders already stored) / 90,000* — the failure rate **grew linearly with the
 store's lifetime order count**.
 
-Observed during development of this suite (steady mode):
+What the suite observed before the fix (steady mode):
 
 | Run | New orders | Orders already in DB | Colliding inserts → HTTP 500 |
 | :--- | :--- | :--- | :--- |
 | A | 766 | ~12 (seed) + same-run | 5 |
 | B | 772 | ~770 (run A's orders persisted) | 14 — matches the expected ≈10 for that history size |
 
-Real-world impact: a store with 10,000 historical orders taking 100 orders/day
-would expect **~11 failed checkouts per day**, each surfacing as a raw
-`500 INTERNAL_SERVER_ERROR` on order insert (the reservation rolls back, so
-**no oversell** — but the customer sees an error).
+Real-world impact at the time: a store with 10,000 historical orders taking
+100 orders/day would expect **~11 failed checkouts per day**, each surfacing as
+a raw `500 INTERNAL_SERVER_ERROR` (the reservation rolled back, so **no
+oversell** — but the customer saw an error).
 
-This is a pre-existing bug that the load suite surfaced, not something the
-suite introduced. Suggested fix (its own change, with a failing concurrency
-test first per the repo TDD rules): generate the numeric suffix from a
-**PostgreSQL sequence** (atomic `nextval`) instead of `ThreadLocalRandom`, or
-catch the unique-violation and retry with a fresh number.
+**Fix (TDD'd):** the suffix now comes from a **PostgreSQL sequence**
+(`order_number_seq`, migration `V18`), handed out atomically by
+`SELECT nextval(...)` — concurrent orders can never draw the same number, and
+the sequence is seeded above the highest suffix already stored so it can never
+collide with pre-migration rows either.
+
+**Verification:**
+
+- `OrderNumberUniquenessConcurrencyTest` — written first, reproduced the bug
+  deterministically (1,500 concurrent orders → `duplicate key value violates
+  unique constraint "orders_order_number_key"`), and now passes: 1,500
+  concurrent orders, all succeed, all numbers distinct.
+- k6 re-run after the fix: the same steady profile that produced 5 and 14
+  collisions now produces **0** across 768 orders (all 781 stored numbers
+  distinct in the database), and the 50-way race still reads exactly
+  1× `201` / 49× `409` / 0× `5xx`.
 
 ### 5.2 Generic 500 handler swallows the root cause (minor, pre-existing)
 

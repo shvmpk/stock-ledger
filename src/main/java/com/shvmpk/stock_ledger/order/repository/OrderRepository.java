@@ -26,6 +26,12 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     boolean existsBySourceAndExternalOrderId(OrderSource source, String externalOrderId);
 
+    // Atomic order-number suffix source. A sequence, not a random draw:
+    // concurrent orders each receive the next value, so numbers can never
+    // collide however many checkouts race (see V18 migration).
+    @Query(value = "SELECT nextval('order_number_seq')", nativeQuery = true)
+    long nextOrderNumberSuffix();
+
     Page<Order> findAllByStatus(OrderStatus status, Pageable pageable);
 
     @Query("""

@@ -227,7 +227,7 @@ erDiagram
     ORDERS ||--o{ ORDER_RETURNS : returned_in
     ORDERS {
         uuid id PK
-        varchar order_number UK
+        varchar order_number UK "ORD-<year>-<suffix>; suffix from the atomic order_number_seq sequence"
         varchar customer_name
         varchar customer_email
         varchar shipping_address

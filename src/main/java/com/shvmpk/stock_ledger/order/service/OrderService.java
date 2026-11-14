@@ -32,7 +32,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -217,8 +216,12 @@ public class OrderService {
     }
 
     private String generateOrderNumber() {
-        int randomDigits = ThreadLocalRandom.current().nextInt(10000, 99999);
-        return String.format("ORD-%d-%05d", LocalDate.now().getYear(), randomDigits);
+        // The suffix comes from a database sequence, handed out atomically:
+        // concurrent orders can never draw the same number, unlike the
+        // previous random five-digit draw whose collision rate grew with the
+        // stored order history (see V18 migration and LOAD-TESTING.md).
+        long suffix = orderRepository.nextOrderNumberSuffix();
+        return String.format("ORD-%d-%05d", LocalDate.now().getYear(), suffix);
     }
 
     public OrderResponse mapToResponse(Order order) {
