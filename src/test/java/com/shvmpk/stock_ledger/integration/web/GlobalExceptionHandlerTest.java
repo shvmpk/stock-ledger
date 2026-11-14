@@ -1,5 +1,10 @@
 package com.shvmpk.stock_ledger.integration.web;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.core.read.ListAppender;
 import com.shvmpk.stock_ledger.common.error.DomainException;
 import com.shvmpk.stock_ledger.common.error.GlobalExceptionHandler;
 import com.shvmpk.stock_ledger.common.error.InsufficientReservedStockException;
@@ -11,18 +16,23 @@ import com.shvmpk.stock_ledger.common.error.RetiredProductException;
 import com.shvmpk.stock_ledger.common.error.ShippingPriceNotConfiguredException;
 import com.shvmpk.stock_ledger.common.error.StockAction;
 import com.shvmpk.stock_ledger.common.error.StockShortageDetails;
+import com.shvmpk.stock_ledger.config.security.RequestIdFilter;
 import com.shvmpk.stock_ledger.config.security.SecurityConfig;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,10 +46,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,8 +62,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("Global Exception Handler & RFC 7807 Problem Details Tests")
 class GlobalExceptionHandlerTest {
 
+    private static final String DATABASE_FAILURE =
+            "Database connection lost while persisting order ORD-2026-91004";
+
     @Autowired
     private MockMvc mockMvc;
+
+    private Logger handlerLogger;
+    private ListAppender<ILoggingEvent> handlerLogCapture;
+
+    @BeforeEach
+    void captureHandlerLogEvents() {
+        handlerLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        handlerLogCapture = new ListAppender<>();
+        handlerLogCapture.start();
+        handlerLogger.addAppender(handlerLogCapture);
+    }
+
+    @AfterEach
+    void releaseHandlerLogEvents() {
+        handlerLogger.detachAppender(handlerLogCapture);
+        handlerLogCapture.stop();
+    }
 
     record SampleRequest(
             @NotBlank(message = "SKU cannot be blank")
@@ -247,6 +280,41 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_RESERVED_STOCK"));
     }
 
+    @Test
+    @WithMockUser(roles = "STAFF")
+    @DisplayName("An unexpected failure returns a generic 500 and logs one ERROR carrying the request and the exception")
+    void shouldLogUnexpectedExceptionWithRequestContext() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/probe/unexpected"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(header().string("Content-Type", containsString("application/problem+json")))
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.title").value("Internal Server Error"))
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.detail").value("An unexpected internal error occurred."))
+                .andExpect(content().string(not(containsString(DATABASE_FAILURE))))
+                .andReturn();
+
+        String requestId = result.getResponse().getHeader(RequestIdFilter.REQUEST_ID_HEADER);
+
+        assertThat(handlerLogCapture.list)
+                .as("exactly one server-side ERROR per unhandled failure")
+                .hasSize(1);
+        ILoggingEvent logged = handlerLogCapture.list.getFirst();
+        assertThat(logged.getLevel()).isEqualTo(Level.ERROR);
+        assertThat(logged.getFormattedMessage()).contains("GET /api/v1/probe/unexpected");
+        assertThat(logged.getMDCPropertyMap())
+                .as("the request id must correlate the log line with the failed request")
+                .containsEntry("requestId", requestId);
+
+        IThrowableProxy thrown = logged.getThrowableProxy();
+        assertThat(thrown).isNotNull();
+        assertThat(thrown.getClassName()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(thrown.getMessage()).isEqualTo(DATABASE_FAILURE);
+        assertThat(thrown.getStackTraceElementProxyArray())
+                .as("the stack trace must reach the server log so the failure is diagnosable")
+                .isNotEmpty();
+    }
+
     @RestController
     @RequestMapping("/api/v1/probe")
     @Validated
@@ -354,6 +422,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/insufficient-reserved")
         public String insufficientReserved() {
             throw new InsufficientReservedStockException("HOOD-NVY-LC", 2);
+        }
+
+        @GetMapping("/unexpected")
+        public String unexpected() {
+            throw new IllegalStateException(DATABASE_FAILURE);
         }
     }
 }

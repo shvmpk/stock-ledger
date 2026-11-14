@@ -178,14 +178,24 @@ collide with pre-migration rows either.
   distinct in the database), and the 50-way race still reads exactly
   1× `201` / 49× `409` / 0× `5xx`.
 
-### 5.2 Generic 500 handler swallows the root cause (minor, pre-existing)
+### 5.2 Generic 500 handler swallowed the root cause (minor, pre-existing — **fixed**)
 
-`GlobalExceptionHandler.handleGenericException(Exception)` maps *every*
+`GlobalExceptionHandler.handleGenericException(Exception)` mapped *every*
 unexpected exception to a clean RFC 7807 body **without logging it** — during
-debugging, the backend log showed nothing at all for the failures above (they
-were only visible via Spring's `DispatcherServlet` DEBUG output). Consider
-adding an `ERROR`-level log with the stack trace there, keeping the client
-body generic.
+debugging, the backend log showed nothing at all for the order-number failures
+above (they were only visible via Spring's `DispatcherServlet` DEBUG output).
+The client-facing body was already right; the gap was purely server-side
+visibility: no `ERROR` line, no stack trace, nothing to grep.
+
+**Fix (TDD'd):** the handler now writes one `ERROR` line per unhandled failure
+carrying the HTTP method, the request URI, and the exception with its **full
+stack trace**. The `requestId` from `RequestIdFilter` is already in the console
+log pattern via MDC, so each line correlates directly with the failed request
+— and the client-facing body stays exactly as generic as before (no internal
+details leak). Covered by
+`GlobalExceptionHandlerTest.shouldLogUnexpectedExceptionWithRequestContext`,
+written first (it asserted one captured `ERROR` event and failed with
+`Expected size: 1 but was: 0`).
 
 ---
 
