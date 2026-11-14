@@ -138,7 +138,7 @@ Standard Java containers are typically 400MB–800MB and bundle Linux utilities 
 
 ## 4. Automated checks (GitHub Actions)
 
-The [ci.yml workflow](https://github.com/shvmpk/stock-ledger/blob/main/.github/workflows/ci.yml) implements a 3-stage enterprise verification matrix:
+The [ci.yml workflow](https://github.com/shvmpk/stock-ledger/blob/main/.github/workflows/ci.yml) implements a 4-stage enterprise verification matrix:
 
 ```mermaid
 flowchart LR
@@ -147,11 +147,14 @@ flowchart LR
     B --> D["Docker Buildx with GHA Cache (type=gha)"]
     C --> D
     D --> E["Trivy CVE Scan (HIGH/CRITICAL)"]
+    B --> F["Playwright e2e (Full Stack)"]
+    C --> F
 ```
 
 - **Buildx Layer Caching (`type=gha`)**: Docker Buildx uses GitHub Actions' cache backend. Gradle dependencies and OS layers are cached across CI runs.
 - **Subsequent image builds finish in under 90 seconds**.
 - **Container vulnerability scanning**: the packaged backend and frontend images are scanned with [Trivy](https://trivy.dev/), reporting `HIGH`/`CRITICAL` CVEs with unfixed vulnerabilities ignored. The scan is report-only for now (`exit-code: 0`) — switch it to `exit-code: 1` to make it a hard quality gate.
+- **End-to-end (Playwright, Full Stack)**: a dedicated job boots the full containerized stack and runs one browser journey — owner login → seeded catalog — against the real backend and database.
 
 ---
 

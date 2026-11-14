@@ -135,3 +135,18 @@ Screen-by-screen detail lives in [GUIDE.md](docs/pages/GUIDE.md); password and a
 Both packaged images are vulnerability-scanned in CI: the packaging job runs [Trivy](https://trivy.dev/) against the backend and frontend images on every push/PR, reporting `HIGH`/`CRITICAL` CVEs (unfixed vulnerabilities ignored). The scan currently runs in report mode — flip `exit-code` from `'0'` to `'1'` in [ci.yml](.github/workflows/ci.yml) to promote it to a hard build gate once the first findings are triaged.
 
 For deep-dive mechanics and GitHub Actions CI cache setup, refer to **[DOCKER-GUIDE.md](DOCKER-GUIDE.md)**.
+
+---
+
+## 🧪 End-to-End Test (Playwright)
+
+One browser-level journey runs against the real full stack (Postgres + distroless backend + nginx frontend): an owner signs in with the demo credentials and sees the seeded catalog — the browser → SPA → session cookie → API → database wiring that component tests cannot cover.
+
+```bash
+cd frontend && bun run e2e      # boots the stack (reuses it if already running), runs the test
+bun run e2e:down                # stop the stack afterwards
+```
+
+- Playwright's webServer boots `docker compose --profile full`, waits for the backend to finish seeding (by polling a real login), then runs `frontend/e2e/`.
+- CI runs the same suite in a dedicated **Playwright End-to-End (Full Stack)** job; failures upload the Playwright HTML report as an artifact.
+- First run pays a one-time Chromium download and image build; subsequent runs take about two minutes.

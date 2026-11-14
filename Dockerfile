@@ -27,7 +27,7 @@ RUN java -Djarmode=tools -jar /workspace/build/libs/stock-ledger-0.0.1-SNAPSHOT.
 FROM eclipse-temurin:21-jdk-noble AS jre-builder
 
 RUN $JAVA_HOME/bin/jlink \
-    --add-modules java.base,java.logging,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,java.sql,java.xml,java.net.http,java.compiler,java.rmi,jdk.unsupported \
+    --add-modules java.base,java.logging,java.naming,java.desktop,java.management,java.security.jgss,java.instrument,java.sql,java.xml,java.net.http,java.compiler,java.rmi,jdk.unsupported,jdk.net,jdk.crypto.ec \
     --strip-debug \
     --no-man-pages \
     --no-header-files \
